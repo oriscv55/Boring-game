@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Circle Game</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    background-color: #000000;
+    overflow: hidden;
+    touch-action: none;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #joystick-zone {
+    position: fixed;
+    bottom: 40px;
+    left: 40px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #joystick-knob {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #ffe18f;
+    box-shadow: 0 0 15px rgba(255, 225, 143, 0.6);
+    pointer-events: none;
+    transform: translate(0px, 0px);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="joystick-zone">
+  <div id="joystick-knob"></div>
+</div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const joystickZone = document.getElementById('joystick-zone');
+  const joystickKnob = document.getElementById('joystick-knob');
+
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
+
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+
+  const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (isMobile) {
+    joystickZone.style.display = 'flex';
+  }
+
+  const player = {
+    x: width / 2,
+    y: height / 2,
+    radius: 28,
+    speed: 6,
+    color: '#ffe18f'
+  };
+
+  const keys = {};
+  window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    keys[e.key.toLowerCase()] = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    keys[e.code] = false;
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  let joyX = 0;
+  let joyY = 0;
+  let joyActive = false;
+  const maxDistance = 35;
+
+  function updateJoystick(clientX, clientY) {
+    const rect = joystickZone.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > maxDistance) {
+      dx = (dx / distance) * maxDistance;
+      dy = (dy / distance) * maxDistance;
+    }
+
+    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    joyX = dx / maxDistance;
+    joyY = dy / maxDistance;
+  }
+
+  joystickZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    joyActive = true;
+    updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+
+  joystickZone.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!joyActive) return;
+    updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+
+  function resetJoystick() {
+    joyActive = false;
+    joyX = 0;
+    joyY = 0;
+    joystickKnob.style.transform = 'translate(0px, 0px)';
+  }
+
+  joystickZone.addEventListener('touchend', resetJoystick);
+  joystickZone.addEventListener('touchcancel', resetJoystick);
+
+  function update() {
+    let moveX = 0;
+    let moveY = 0;
+
+    if (isMobile) {
+      moveX = joyX;
+      moveY = joyY;
+    } else {
+      if (keys['KeyW'] || keys['w'] || keys['z']) moveY -= 1;
+      if (keys['KeyS'] || keys['s']) moveY += 1;
+      if (keys['KeyA'] || keys['a'] || keys['q']) moveX -= 1;
+      if (keys['KeyD'] || keys['d']) moveX += 1;
+
+      if (moveX !== 0 && moveY !== 0) {
+        const length = Math.hypot(moveX, moveY);
+        moveX /= length;
+        moveY /= length;
+      }
+    }
+
+    player.x += moveX * player.speed;
+    player.y += moveY * player.speed;
+
+    if (player.x - player.radius < 0) player.x = player.radius;
+    if (player.x + player.radius > width) player.x = width - player.radius;
+    if (player.y - player.radius < 0) player.y = player.radius;
+    if (player.y + player.radius > height) player.y = height - player.radius;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    ctx.fillStyle = player.color;
+    ctx.shadowColor = player.color;
+    ctx.shadowBlur = 20;
+    ctx.fill();
+    ctx.closePath();
+    ctx.shadowBlur = 0;
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
+</body>
+</html>
